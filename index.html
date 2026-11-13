@@ -79,6 +79,79 @@
     .footer .admin-link { color:var(--text-muted); text-decoration:none; font-size:12px; font-weight:600; padding:6px 12px; border:1px solid var(--border); border-radius:8px; transition:all .15s; }
     .footer .admin-link:hover { color:var(--accent); border-color:var(--accent); background:#eef2ff; }
 
+    /* ===== SUCCESS MODAL ===== */
+    .success-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      backdrop-filter: blur(6px);
+    }
+    .success-modal.active { display: flex; }
+    .success-modal-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 40px 32px 28px;
+      width: 100%;
+      max-width: 460px;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      animation: successIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes successIn {
+      from { opacity: 0; transform: scale(0.9) translateY(12px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .success-modal-card h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 14px;
+      letter-spacing: -0.3px;
+    }
+    .success-modal-card > p {
+      font-size: 15px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 22px;
+    }
+    .success-modal-card .screenshot-note {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      text-align: left;
+    }
+    .success-modal-card .screenshot-note strong {
+      color: var(--primary);
+      font-weight: 700;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .success-modal-card .btn-close-success {
+      width: 100%;
+      padding: 13px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
+      color: #fff;
+      background: var(--success);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .success-modal-card .btn-close-success:hover { background: #059669; }
+    .success-modal-card .btn-close-success:active { transform: scale(0.98); }
+
     #loginView.active { display:flex; min-height:100vh; align-items:center; justify-content:center; padding:24px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); }
     .login-card { background:#fff; border-radius:20px; padding:40px 36px; width:100%; max-width:420px; box-shadow:0 25px 50px -12px rgba(0,0,0,.25); }
     .login-brand { text-align:center; margin-bottom:32px; }
@@ -190,7 +263,7 @@
 
     @media (max-width:900px) { .charts-grid { grid-template-columns:1fr; } .main { padding:16px; } }
     @media (max-width:768px) { .sidebar { transform:translateX(-100%); transition:transform .2s; } .main { margin-left:0; } }
-    @media (max-width:480px) { .form-card { padding:24px 20px; } .header h1 { font-size:22px; } .radio-group { flex-direction:column; } .info-card { flex-direction:column; gap:12px; } }
+    @media (max-width:480px) { .form-card { padding:24px 20px; } .header h1 { font-size:22px; } .radio-group { flex-direction:column; } .info-card { flex-direction:column; gap:12px; } .success-modal-card { padding:32px 24px 24px; } .success-modal-card h2 { font-size:20px; } }
   </style>
 </head>
 <body>
@@ -232,11 +305,11 @@
             <div class="radio-group">
               <div class="radio-option">
                 <input type="radio" id="kat_mahasiswa" name="kategori" value="Mahasiswa" required />
-                <label for="kat_mahasiswa">🎓 Mahasiswa</label>
+                <label for="kat_mahasiswa">Mahasiswa</label>
               </div>
               <div class="radio-option">
                 <input type="radio" id="kat_alumni" name="kategori" value="Alumni" required />
-                <label for="kat_alumni">🎓 Alumni</label>
+                <label for="kat_alumni">Alumni</label>
               </div>
             </div>
           </div>
@@ -413,14 +486,14 @@
 
       <section id="view-data" class="content-view">
         <div class="filters-bar">
-          <input type="text" id="searchInput" placeholder="🔍 Cari nama, email, atau NIM..." class="search-input" />
+          <input type="text" id="searchInput" placeholder="Cari nama, email, atau NIM..." class="search-input" />
           <select id="filterKategori" class="filter-select">
             <option value="">Semua Kategori</option>
             <option value="Mahasiswa">Mahasiswa</option>
             <option value="Alumni">Alumni</option>
           </select>
           <select id="filterProdi" class="filter-select"><option value="">Semua Prodi</option></select>
-          <button class="btn-export" id="btnExport">⬇ Export CSV</button>
+          <button class="btn-export" id="btnExport">Export CSV</button>
         </div>
         <div class="table-card">
           <div class="table-wrap">
@@ -466,7 +539,7 @@
     </main>
   </div>
 
-  <!-- DETAIL MODAL -->
+  <!-- DETAIL MODAL (admin) -->
   <div id="detailModal" class="modal">
     <div class="modal-card">
       <div class="modal-header">
@@ -477,10 +550,23 @@
     </div>
   </div>
 
+  <!-- ========== SUCCESS MODAL (popup pendaftaran berhasil) ========== -->
+  <div id="successModal" class="success-modal">
+    <div class="success-modal-card">
+      <h2>Pendaftaran Berhasil</h2>
+      <p>Anda sudah berhasil mendaftar Latihan Wawancara Kerja dengan AI.</p>
+      <div class="screenshot-note">
+        <strong>Silakan screenshot halaman ini</strong>
+        Simpan sebagai bukti pendaftaran jika diperlukan.
+      </div>
+      <button class="btn-close-success" id="btnCloseSuccess">Selesai</button>
+    </div>
+  </div>
+
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-    // ✅ Kredensial Supabase Anda (sudah terpasang)
+    // ✅ Kredensial Supabase Anda
     const SUPABASE_URL = 'https://ljdodtktrrwwlaphwfmg.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_Xjlpf4uTFaL1QOjHsKlLHw_dzsTMQzp';
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -595,6 +681,21 @@
       return true;
     }
 
+    // ===== SUCCESS MODAL HANDLER =====
+    function showSuccessModal() {
+      $('successModal').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeSuccessModal() {
+      $('successModal').classList.remove('active');
+      document.body.style.overflow = '';
+    }
+    $('btnCloseSuccess').addEventListener('click', closeSuccessModal);
+    $('successModal').addEventListener('click', (e) => {
+      if (e.target === $('successModal')) closeSuccessModal();
+    });
+
+    // ===== SUBMIT HANDLER =====
     $('registrationForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       messageBox.className = 'message';
@@ -629,13 +730,17 @@
       }
 
       try {
-        const { data, error } = await supabase
+        // ⚠️ TANPA .select() → tidak butuh izin SELECT, bebas dari error RLS
+        const { error } = await supabase
           .from('pendaftaran_latihan_wawancara')
-          .insert([payload])
-          .select('id')
-          .single();
+          .insert([payload]);
+
         if (error) throw error;
-        showFormMessage('success', `✅ Pendaftaran berhasil! Nomor registrasi Anda: ${data.id}. Simpan nomor ini sebagai bukti pendaftaran.`);
+
+        // ✅ Tampilkan popup sukses
+        showSuccessModal();
+
+        // Reset form
         $('registrationForm').reset();
         sectionMahasiswa.classList.remove('active');
         sectionAlumni.classList.remove('active');
@@ -838,8 +943,8 @@
       if (r.kategori === 'Mahasiswa') rows.push(['Semester', 'Semester ' + (r.semester || '-')]);
       else { rows.push(['Tahun Lulus', r.tahun_lulus || '-']); rows.push(['Status Pekerjaan', r.status_pekerjaan || '-']); }
       rows.push(['Waktu Daftar', fmtDate(r.created_at)]);
-      rows.push(['Persetujuan', r.persetujuan ? '✅ Disetujui' : '❌ Belum']);
-      rows.push(['Konfirmasi Perangkat', r.konfirmasi_perangkat ? '✅ Dikonfirmasi' : '❌ Belum']);
+      rows.push(['Persetujuan', r.persetujuan ? 'Disetujui' : 'Belum']);
+      rows.push(['Konfirmasi Perangkat', r.konfirmasi_perangkat ? 'Dikonfirmasi' : 'Belum']);
       $('modalBody').innerHTML = rows.map(([k, v]) => `
         <div class="detail-row"><div class="detail-key">${k}</div><div class="detail-val">${esc(String(v))}</div></div>
       `).join('');
