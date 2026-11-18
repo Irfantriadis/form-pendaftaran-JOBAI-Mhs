@@ -36,6 +36,40 @@
     .info-item .icon { width:36px; height:36px; background:#eef2ff; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
     .info-item strong { color:var(--text); font-weight:600; display:block; }
 
+    /* ===== QUOTA BANNER ===== */
+    .quota-banner {
+      display: none;
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.6;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .quota-banner.show { display: block; }
+    .quota-banner.info { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+    .quota-banner.warning { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+    .quota-banner strong { font-weight: 700; }
+
+    /* ===== CLOSED STATE ===== */
+    .closed-card {
+      display: none;
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:48px 32px;
+      text-align:center;
+      box-shadow:var(--shadow);
+    }
+    .closed-card.show { display: block; }
+    .closed-icon { font-size:56px; margin-bottom:16px; line-height:1; }
+    .closed-card h2 { font-size:22px; font-weight:800; color:var(--primary); margin-bottom:12px; letter-spacing:-.3px; }
+    .closed-card p { font-size:15px; color:var(--text-muted); line-height:1.7; }
+    .closed-card .closed-note { margin-top:18px; font-size:14px; color:var(--text-muted); padding-top:18px; border-top:1px solid var(--border); }
+
+    .is-hidden { display:none !important; }
+
     .form-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:32px 28px; box-shadow:var(--shadow); }
     .form-card h2 { font-size:18px; font-weight:700; margin-bottom:4px; color:var(--primary); }
     .form-card .subtitle { font-size:14px; color:var(--text-muted); margin-bottom:24px; }
@@ -81,7 +115,6 @@
     .footer .admin-link { color:var(--text-muted); text-decoration:none; font-size:12px; font-weight:600; padding:6px 12px; border:1px solid var(--border); border-radius:8px; transition:all .15s; }
     .footer .admin-link:hover { color:var(--accent); border-color:var(--accent); background:#eef2ff; }
 
-    /* SUCCESS MODAL */
     .success-modal { display:none; position:fixed; inset:0; background:rgba(15,23,42,.6); z-index:2000; align-items:center; justify-content:center; padding:24px; backdrop-filter:blur(6px); }
     .success-modal.active { display:flex; }
     .success-modal-card { background:#fff; border-radius:20px; padding:40px 32px 28px; width:100%; max-width:460px; text-align:center; box-shadow:0 25px 50px -12px rgba(0,0,0,.25); animation:successIn .35s cubic-bezier(.16,1,.3,1); }
@@ -94,7 +127,6 @@
     .success-modal-card .btn-close-success:hover { background:#059669; }
     .success-modal-card .btn-close-success:active { transform:scale(.98); }
 
-    /* LOGIN */
     #loginView.active { display:flex; min-height:100vh; align-items:center; justify-content:center; padding:24px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); }
     .login-card { background:#fff; border-radius:20px; padding:40px 36px; width:100%; max-width:420px; box-shadow:0 25px 50px -12px rgba(0,0,0,.25); }
     .login-brand { text-align:center; margin-bottom:32px; }
@@ -107,7 +139,6 @@
     .back-link { display:block; text-align:center; margin-top:18px; font-size:13px; color:var(--text-muted); text-decoration:none; }
     .back-link:hover { color:var(--accent); }
 
-    /* DASHBOARD */
     #dashboardView.active { display:flex; }
     .sidebar { width:var(--sidebar-w); background:var(--primary); color:#fff; display:flex; flex-direction:column; position:fixed; top:0; left:0; height:100vh; padding:24px 16px; z-index:100; }
     .sidebar-brand { display:flex; align-items:center; gap:12px; padding:0 8px 24px; border-bottom:1px solid rgba(255,255,255,.1); margin-bottom:24px; }
@@ -227,7 +258,10 @@
         <div class="info-item"><div class="icon">📍</div><div><strong>Hotel Arkenzo, Semarang</strong>Tempat</div></div>
       </div>
 
-      <div class="form-card">
+      <!-- ===== QUOTA BANNER ===== -->
+      <div id="quotaBanner" class="quota-banner"></div>
+
+      <div class="form-card" id="formCard">
         <h2>Formulir Pendaftaran</h2>
         <p class="subtitle">Isi data diri Anda dengan lengkap dan benar.</p>
 
@@ -296,6 +330,14 @@
           </button>
           <div id="formMessage" class="message"></div>
         </form>
+      </div>
+
+      <!-- ===== CLOSED STATE (angka dinamis dari QUOTA_LIMIT) ===== -->
+      <div id="closedState" class="closed-card">
+        <div class="closed-icon">🚫</div>
+        <h2>Maaf, Pendaftaran Sudah Ditutup</h2>
+        <p>Kuota pendaftaran <strong>HRD Professional Session — Job-AI</strong> telah terpenuhi (<strong><span id="closedQuotaNumber">65</span> peserta</strong>).</p>
+        <p class="closed-note">Terima kasih atas antusiasme Anda. Sampai jumpa di kesempatan berikutnya.</p>
       </div>
 
       <div class="footer">
@@ -487,11 +529,80 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_Xjlpf4uTFaL1QOjHsKlLHw_dzsTMQzp';
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // ===== QUOTA CONFIG =====
+    const QUOTA_LIMIT = 65;
+    const quotaInfo = { count: null, loading: false, error: null };
+
     const $ = (id) => document.getElementById(id);
     let currentUser = null;
     let allData = [];
     let charts = {};
     let currentSort = { key: 'created_at', dir: 'desc' };
+
+    // ========== QUOTA LOGIC ==========
+    async function checkQuota() {
+      quotaInfo.loading = true;
+      try {
+        const { count, error } = await supabase
+          .from('pendaftaran_hrd_session')
+          .select('id', { count: 'exact', head: true });
+        if (error) throw error;
+        quotaInfo.count = typeof count === 'number' ? count : 0;
+        quotaInfo.error = null;
+      } catch (err) {
+        quotaInfo.count = null;
+        quotaInfo.error = err.message || 'unknown';
+        console.warn('[Quota] Gagal cek kuota:', err);
+      } finally {
+        quotaInfo.loading = false;
+        renderQuotaState();
+      }
+    }
+
+    function isQuotaFull() {
+      return quotaInfo.count !== null && quotaInfo.count >= QUOTA_LIMIT;
+    }
+
+    function renderQuotaState() {
+      const banner = $('quotaBanner');
+      const formCard = $('formCard');
+      const closedState = $('closedState');
+
+      // Sinkronkan angka kuota di card closed (dinamis dari QUOTA_LIMIT)
+      const closedNum = $('closedQuotaNumber');
+      if (closedNum) closedNum.textContent = QUOTA_LIMIT;
+
+      // Reset tampilan
+      banner.className = 'quota-banner';
+      formCard.classList.remove('is-hidden');
+      closedState.classList.remove('show');
+
+      // Gagal cek kuota → fail-open
+      if (quotaInfo.count === null) {
+        if (quotaInfo.error) {
+          banner.className = 'quota-banner warning show';
+          banner.innerHTML = '⚠️ Tidak dapat memverifikasi kuota secara otomatis. Pendaftaran tetap dibuka.';
+        }
+        return;
+      }
+
+      const remaining = QUOTA_LIMIT - quotaInfo.count;
+
+      if (remaining <= 0) {
+        banner.classList.remove('show');
+        formCard.classList.add('is-hidden');
+        closedState.classList.add('show');
+        return;
+      }
+
+      if (remaining <= 10) {
+        banner.className = 'quota-banner warning show';
+        banner.innerHTML = `⚠️ <strong>Sisa kuota terbatas:</strong> hanya ${remaining} dari ${QUOTA_LIMIT} slot tersisa. Segera daftar!`;
+      } else {
+        banner.className = 'quota-banner info show';
+        banner.innerHTML = `✅ <strong>Sisa kuota:</strong> ${remaining} dari ${QUOTA_LIMIT} slot tersedia.`;
+      }
+    }
 
     // ========== ROUTER ==========
     function showView(view) {
@@ -523,6 +634,7 @@
         $('username').focus();
       } else {
         showView('registration');
+        checkQuota();
       }
     }
 
@@ -539,7 +651,6 @@
     const spinner = $('spinner');
     const messageBox = $('formMessage');
 
-    // Bidang "Lainnya" toggle
     $('bidang_pekerjaan').addEventListener('change', () => {
       const isLainnya = $('bidang_pekerjaan').value === 'Lainnya';
       $('sectionBidangLainnya').classList.toggle('active', isLainnya);
@@ -581,7 +692,6 @@
       return true;
     }
 
-    // ===== SALIN DATA =====
     $('btnSalin').addEventListener('click', async () => {
       const p = getPayload();
       const lines = [
@@ -618,7 +728,6 @@
       }
     });
 
-    // ===== SUCCESS MODAL =====
     function showSuccessModal() {
       $('successModal').classList.add('active');
       document.body.style.overflow = 'hidden';
@@ -632,7 +741,7 @@
       if (e.target === $('successModal')) closeSuccessModal();
     });
 
-    // ===== SUBMIT =====
+    // ===== SUBMIT (dengan re-check kuota) =====
     $('registrationForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       messageBox.className = 'message';
@@ -640,16 +749,29 @@
       if (!validateForm()) return;
 
       btnSubmit.disabled = true;
-      btnText.textContent = 'Mengirim data...';
+      btnText.textContent = 'Memeriksa kuota...';
       spinner.style.display = 'block';
 
-      const payload = getPayload();
-
       try {
+        await checkQuota();
+
+        if (isQuotaFull()) {
+          showFormMessage('error', '❌ Maaf, kuota pendaftaran sudah terpenuhi. Pendaftaran ditutup.');
+          return;
+        }
+
+        btnText.textContent = 'Mengirim data...';
+
+        const payload = getPayload();
         const { error } = await supabase
           .from('pendaftaran_hrd_session')
           .insert([payload]);
         if (error) throw error;
+
+        if (quotaInfo.count !== null) {
+          quotaInfo.count++;
+          renderQuotaState();
+        }
 
         showSuccessModal();
         $('registrationForm').reset();
