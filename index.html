@@ -79,6 +79,29 @@
     .footer .admin-link { color:var(--text-muted); text-decoration:none; font-size:12px; font-weight:600; padding:6px 12px; border:1px solid var(--border); border-radius:8px; transition:all .15s; }
     .footer .admin-link:hover { color:var(--accent); border-color:var(--accent); background:#eef2ff; }
 
+    /* ===== KUOTA PENDAFTARAN ===== */
+    .quota-bar {
+      display: flex; align-items: center; gap: 12px;
+      background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3;
+      border-radius: 12px; padding: 12px 16px;
+      font-size: 13px; font-weight: 600; margin-bottom: 20px;
+    }
+    .quota-bar .quota-track { flex: 1; height: 8px; background: #c7d2fe; border-radius: 999px; overflow: hidden; min-width: 70px; }
+    .quota-bar .quota-fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .4s ease; }
+    .quota-bar.full { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+    .quota-bar.full .quota-track { background: #fecaca; }
+    .quota-bar.full .quota-fill { background: var(--error); }
+
+    .closed-card {
+      display: none; background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 44px 28px; text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .closed-card.active { display: block; }
+    .closed-card .closed-icon { font-size: 44px; margin-bottom: 14px; }
+    .closed-card h2 { font-size: 20px; font-weight: 800; color: var(--primary); margin-bottom: 8px; letter-spacing: -.3px; }
+    .closed-card p { font-size: 14px; color: var(--text-muted); line-height: 1.7; max-width: 420px; margin: 0 auto; }
+
     /* ===== SUCCESS MODAL ===== */
     .success-modal {
       display: none;
@@ -281,11 +304,17 @@
         <div class="info-item"><div class="icon">📅</div><div><strong>Kamis, 26 November 2026</strong>Hari/Tanggal</div></div>
         <div class="info-item"><div class="icon">⏰</div><div><strong>08.30 WIB – selesai</strong>Waktu</div></div>
         <div class="info-item"><div class="icon">📍</div><div><strong>Aula Universitas Harkat Negeri</strong>Tempat</div></div>
+        <div class="info-item"><div class="icon">👥</div><div><strong id="kuotaInfo">100 pendaftar</strong>Kuota</div></div>
       </div>
 
-      <div class="form-card">
+      <div class="form-card" id="formCard">
         <h2>Formulir Pendaftaran</h2>
         <p class="subtitle">Data Anda akan disimpan secara aman dan hanya digunakan untuk keperluan kegiatan.</p>
+
+        <div class="quota-bar" id="quotaBar">
+          <span id="quotaText">Kuota: 0 / 100 pendaftar</span>
+          <div class="quota-track"><div class="quota-fill" id="quotaFill"></div></div>
+        </div>
 
         <form id="registrationForm" novalidate>
           <div class="field">
@@ -384,6 +413,12 @@
           </button>
           <div id="formMessage" class="message"></div>
         </form>
+      </div>
+
+      <div class="closed-card" id="closedCard">
+        <div class="closed-icon">🔒</div>
+        <h2>Pendaftaran Telah Ditutup</h2>
+        <p>Kuota pendaftaran Latihan Wawancara Kerja dengan AI sudah terpenuhi (100 pendaftar). Terima kasih atas antusiasme Anda.</p>
       </div>
 
       <div class="footer">
@@ -607,6 +642,7 @@
         $('username').focus();
       } else {
         showView('registration');
+        refreshKuota(); // ← cek kuota saat halaman pendaftaran dibuka
       }
     }
 
@@ -695,12 +731,76 @@
       if (e.target === $('successModal')) closeSuccessModal();
     });
 
+    // ===== KUOTA PENDAFTARAN (maks 100) =====
+    const MAX_PENDAFTAR = 100;
+    let kuotaClosed = false;
+
+    async function getJumlahPendaftar() {
+      // 1) Cara utama: RPC security-definer (tidak membuka data ke publik)
+      try {
+        const { data, error } = await supabase.rpc('jumlah_pendaftar');
+        if (!error && data !== null && data !== undefined) return Number(data);
+      } catch (e) {}
+      // 2) Fallback: count langsung (butuh izin SELECT untuk anon)
+      try {
+        const { count, error } = await supabase
+          .from('pendaftaran_latihan_wawancara')
+          .select('id', { count: 'exact', head: true });
+        if (!error && typeof count === 'number') return count;
+      } catch (e) {}
+      return null; // jumlah tidak diketahui → biarkan trigger DB yang menjaga
+    }
+
+    function applyKuotaUI(total) {
+      const formCard   = $('formCard');
+      const closedCard = $('closedCard');
+      const quotaBar   = $('quotaBar');
+
+      // Kuota penuh → tutup pendaftaran
+      if (total !== null && total >= MAX_PENDAFTAR) {
+        kuotaClosed = true;
+        formCard.style.display = 'none';
+        closedCard.classList.add('active');
+        $('kuotaInfo').textContent = 'Kuota penuh';
+        return;
+      }
+
+      kuotaClosed = false;
+      closedCard.classList.remove('active');
+      formCard.style.display = '';
+
+      // Jumlah tidak diketahui → sembunyikan bar, form tetap terbuka
+      if (total === null) {
+        $('kuotaInfo').textContent = MAX_PENDAFTAR + ' pendaftar';
+        quotaBar.style.display = 'none';
+        return;
+      }
+
+      const sisa = Math.max(MAX_PENDAFTAR - total, 0);
+      $('kuotaInfo').textContent = `${total} / ${MAX_PENDAFTAR} pendaftar`;
+      quotaBar.style.display = 'flex';
+      quotaBar.classList.toggle('full', sisa === 0);
+      $('quotaText').textContent = `Kuota terisi ${total} dari ${MAX_PENDAFTAR} • Sisa ${sisa}`;
+      $('quotaFill').style.width = Math.min((total / MAX_PENDAFTAR) * 100, 100) + '%';
+    }
+
+    async function refreshKuota() {
+      const total = await getJumlahPendaftar();
+      applyKuotaUI(total);
+      return total;
+    }
+
     // ===== SUBMIT HANDLER =====
     $('registrationForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       messageBox.className = 'message';
       messageBox.textContent = '';
       if (!validateForm()) return;
+
+      if (kuotaClosed) {
+        showFormMessage('error', '❌ Pendaftaran sudah ditutup. Kuota 100 pendaftar telah terpenuhi.');
+        return;
+      }
 
       btnSubmit.disabled = true;
       btnText.textContent = 'Mengirim data...';
@@ -730,6 +830,16 @@
       }
 
       try {
+        // 🔒 Cek kuota terakhir tepat sebelum insert
+        const total = await getJumlahPendaftar();
+        if (total !== null) {
+          applyKuotaUI(total);
+          if (total >= MAX_PENDAFTAR) {
+            showFormMessage('error', '❌ Pendaftaran sudah ditutup. Kuota 100 pendaftar telah terpenuhi.');
+            return;
+          }
+        }
+
         // ⚠️ TANPA .select() → tidak butuh izin SELECT, bebas dari error RLS
         const { error } = await supabase
           .from('pendaftaran_latihan_wawancara')
@@ -746,10 +856,17 @@
         sectionAlumni.classList.remove('active');
         setRequired(sectionMahasiswa, false);
         setRequired(sectionAlumni, false);
+
+        // Perbarui sisa kuota (jika ini pendaftar ke-100, form langsung tertutup)
+        await refreshKuota();
       } catch (err) {
         console.error(err);
         let msg = '❌ Terjadi kesalahan saat menyimpan data.';
-        if (err.message?.includes('duplicate') || err.message?.includes('unique')) msg = '❌ Email/WhatsApp sudah terdaftar.';
+        if (/kuota|penuh/i.test(err.message || '')) {
+          applyKuotaUI(MAX_PENDAFTAR); // paksa tampilkan state "ditutup"
+          msg = '❌ Pendaftaran sudah ditutup. Kuota 100 pendaftar telah terpenuhi.';
+        }
+        else if (err.message?.includes('duplicate') || err.message?.includes('unique')) msg = '❌ Email/WhatsApp sudah terdaftar.';
         else if (err.message?.includes('row-level security')) msg = '❌ Akses ditolak. Periksa konfigurasi RLS.';
         else if (err.message) msg = '❌ ' + err.message;
         showFormMessage('error', msg);
